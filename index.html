@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>Flow Solver</title>
+</head>
+<body>
+
+<style>
+
+.mapElement {
+fill:rgb(240,240,240);
+stroke:white;
+stroke-width:2;
+}
+span {
+display: inline-block;
+width: 20px;
+}
+
+</style>
+
+<p id = "input">
+Size:  <input> <span class ="range" id="range"></span><button>reset</button> 
+</p>
+
+<p><button onclick="preset(1)">preset 1</button> <button onclick="preset(2)">preset 2</button><button onclick="preset(3)">preset 3</button><button onclick="preset(4)">preset 4</button></p>
+<svg class = "map">
+</svg>
+<br>
+<br>
+<svg class = "colorButtons">
+</svg>
+<p>
+<button onclick="solve()">solve!</button>
+</p>
+<p id="message"> </p>
+<script src="d3.v3.min.js" charset="utf-8"></script>
+<script src="flowSolver.js"></script>
+<script src="flowSolver_solve.js"></script>
+</body>
+</html>
+
+<!--
+
+stroke-width:3;stroke:rgb(0,0,0)"
+      <path d="M 80 0 L 0 0 0 80" fill="none" stroke="black" stroke-width="2"/>
+
+<svg id = "map">
+</svg>
+
+<svg 
+This is a comment -->
