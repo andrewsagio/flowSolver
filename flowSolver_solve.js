@@ -79,8 +79,6 @@ function displaySolutionOnMap(pnode){
 }
 
 
-
-
 // check if the map is a valid solution (does not contain -1)
 function validSolution(map){
 	for (var r = 0; r<map.length; r++){
@@ -233,7 +231,6 @@ function displayMatrix(matrix){
 	var td = tr.selectAll("td")
 	.data(function(d) { return d; })
 	.enter().append("td").text(function(d) { return d; });
-	body.append("p")
 }
 
 // return unqiue elements of a 2D matrix, exclude the element specified in exclude
