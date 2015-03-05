@@ -1,26 +1,32 @@
 /**
  * 
  */
-
+"use strict";
 ////////////////// algorithms
 function solve(){
+	var count = 0;
 	d3.select("#message")
 		.text("Solving...");
 	//displayMatrix(mapData);
-	uniqueColors = unique(mapData, -1); // exclude -1
+	var uniqueColors = unique(mapData, -1); // exclude -1
 	if (uniqueColors.length == 0) return;
 
 	var queue = [];
 	
+	var pos = [];
+	for (var c=0; c < uniqueColors.length; c++){
+		pos[c] = getColorPositions(mapData, c);
+	}
+	
+	
 	// start with first unique color, find all valid paths
-	var color = uniqueColors[0];
-	pos = getColorPositions(mapData, color);
-	var paths = allPossiblePaths(color, pos[0], mapData);
+	var color = uniqueColors[0]; 
+	var paths = allPossiblePaths(color, pos[color][0], mapData);
 	for (var i=0; i<paths.length; i++){
 		var current = new pathNode(paths[i]);
 		current.color = color;
-		current.map = deepCopyMap(mapData);
-		updateMap(current.map, current.path, current.color);
+//		current.map = deepCopyMap(mapData);
+//		updateMap(current.map, current.path, current.color);
 		queue.push(current);  // queue each valid path
 	}
 
@@ -30,31 +36,49 @@ function solve(){
 		if (colorInd < uniqueColors.length-1){
 			// do next color
 			var color = uniqueColors[colorInd+1];
-			pos = getColorPositions(current.map, color);
-			var paths = allPossiblePaths(color, pos[0], current.map);
+			var map = populatePathsOnMap(mapData, current);
+			var paths = allPossiblePaths(color, pos[color][0], map);
 			for ( var i = 0; i < paths.length; i++) {
 				var next = new pathNode(paths[i]);
 				next.color = color;
 				next.parent = current;
-				next.map = deepCopyMap(current.map);
-				updateMap(next.map, next.path, next.color);
+//				next.map = deepCopyMap(current.map);
+//				updateMap(next.map, next.path, next.color);
 				queue.push(next);
 			} 
+			if (paths.length == 0)
+				count++;
 		} else {
+			count++;
 			// current is the last color
-			if (validSolution(current.map)){
+			var map = populatePathsOnMap(mapData, current);
+			if (validSolution(map)){
 				//displayMatrix(current.map);
 				displaySolutionOnMap(current);
 				d3.select("#message")
-				.text("Solution found!  Press reset to contine.");				
+				.text("Solution found!  Press reset to contine. (" + count +" considered.)");				
 				return;
 			}
+			
 		} 
 	}
 
 	d3.select("#message")
 	.text("No solution.");
 	return;
+}
+
+// populate a map with previous paths
+function populatePathsOnMap(mapData, pnode){
+	var map = deepCopyMap(mapData);
+	while (true){
+		var current = pnode.path;
+		updateMap(map, current, pnode.color);
+		pnode = pnode.parent;
+		if (pnode == undefined)
+			break;
+	}
+	return map;
 }
 
 function displaySolutionOnMap(pnode){
@@ -90,7 +114,7 @@ function validSolution(map){
 
 // update map 
 function updateMap(map, node, color){
-	current = node;
+	var current = node;
 	while (true){
 		var pos = current.value;
 		var r = pos[0];
@@ -125,7 +149,7 @@ function node(value){
 
 // return a new copy of 2D matrix map
 function deepCopyMap(map){
-	m = [];
+	var m = [];
 	for (var r=0; r<map.length; r++){
 		m[r] = [];
 		for (var c=0; c<map.length; c++)
@@ -143,7 +167,7 @@ function allPossiblePaths(color, startPos, map){
 	while (queue.length > 0){
 		current = queue.pop();
 		// examine all current neighbors
-		nn = neighbors(map, current.value, [color, -1]);
+		var nn = neighbors(map, current.value, [color, -1]);
 		for (i = 0; i < nn.length; i++){
 			if (!visited(current, nn[i])) {
 				// not visited before.  A valid next step.
