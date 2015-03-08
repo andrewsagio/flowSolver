@@ -246,14 +246,19 @@ function preset(i){
 	resetMapData(numRows, numCols);
     initializeMap();
 	mapData = newMapData;
-	for (r=0; r < numRows; r++){
-		for (c=0; c < numCols; c++){
-			setMapElement(r,c, mapData[r][c]);
-		}
-	}
+	updateDisplayMap(mapData);
 	d3.select("#message")
 	.text("");	
 }
+
+function updateDisplayMap(map) {
+	for (r = 0; r < map.length; r++) {
+		for (c = 0; c < map[r].length; c++) {
+			setMapElement(r, c, map[r][c]);
+		}
+	}
+}
+
 
 //draw path from lastPos to thisPos with color
 function drawPath(lastPos, thisPos, color){

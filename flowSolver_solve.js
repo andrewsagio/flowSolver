@@ -3,48 +3,81 @@
  */
 "use strict";
 ////////////////// algorithms
+var maxPathPerColor = 1000;
+var maxIteration = 10000;
+var uniqueColors;
+var colorPos;
 function solve(){
 	var count = 0;
 	d3.select("#message")
 		.text("Solving...");
 	//displayMatrix(mapData);
-	var uniqueColors = unique(mapData, -1); // exclude -1
+	uniqueColors = unique(mapData, -1); // exclude -1
 	if (uniqueColors.length == 0) return;
+	
 
 	var queue = [];
+	colorPos = [];
+	for (var i=0; i < uniqueColors.length; i++){
+		var c = uniqueColors[i];
+		colorPos[c] = getColorPositions(mapData, c);
+	}
+
 	
-	var pos = [];
-	for (var c=0; c < uniqueColors.length; c++){
-		pos[c] = getColorPositions(mapData, c);
+	// pre-estimate
+	for (var i=0; i<uniqueColors.length; i++){
+		var color = uniqueColors[i];
+		var map = deepCopyMap(mapData);
+		updateTrivialMoves(map, uniqueColors, colorPos, color);
+		var paths = allPossiblePaths(color, colorPos[color][0], map, 100);
+		console.log(color +", "+ paths.length)
+		
 	}
 	
+
 	
 	// start with first unique color, find all valid paths
-	var color = uniqueColors[0]; 
-	var paths = allPossiblePaths(color, pos[color][0], mapData);
+	var color = uniqueColors[0];
+	var map = deepCopyMap(mapData);
+	updateTrivialMoves(map, uniqueColors, colorPos, color);
+	var paths = allPossiblePaths(color, colorPos[color][0], map, maxPathPerColor);
 	for (var i=0; i<paths.length; i++){
-		var current = new pathNode(paths[i]);
-		current.color = color;
-//		current.map = deepCopyMap(mapData);
-//		updateMap(current.map, current.path, current.color);
-		queue.push(current);  // queue each valid path
+		if (! blockingPath(paths[i], map, uniqueColors, color, colorPos)){
+			var current = new pathNode(paths[i]);
+			current.color = color;
+//			current.map = deepCopyMap(mapData);
+//			updateMap(current.map, current.path, current.color);
+			queue.push(current);  // queue each valid path
+		} else {
+			count++;
+		}
 	}
 
 	while (queue.length > 0) {
+		if (count >= maxIteration){
+			d3.select("#message")
+			.text("Max iteration reached ("+count+")");			
+			return;
+		}
 		var current = queue.pop();
 		var colorInd = uniqueColors.indexOf(current.color);
 		if (colorInd < uniqueColors.length-1){
 			// do next color
 			var color = uniqueColors[colorInd+1];
 			var map = populatePathsOnMap(mapData, current);
-			var paths = allPossiblePaths(color, pos[color][0], map);
+			updateTrivialMoves(map, uniqueColors, colorPos, color);
+			var paths = allPossiblePaths(color, colorPos[color][0], map, maxPathPerColor);
 			for ( var i = 0; i < paths.length; i++) {
-				var next = new pathNode(paths[i]);
-				next.color = color;
-				next.parent = current;
-//				next.map = deepCopyMap(current.map);
-//				updateMap(next.map, next.path, next.color);
-				queue.push(next);
+				if (! blockingPath(paths[i], map, uniqueColors, color, colorPos)){				
+					var next = new pathNode(paths[i]);
+					next.color = color;
+					next.parent = current;
+//					next.map = deepCopyMap(current.map);
+//					updateMap(next.map, next.path, next.color);
+					queue.push(next);
+				} else {
+					count++;
+				}
 			} 
 			if (paths.length == 0)
 				count++;
@@ -56,7 +89,7 @@ function solve(){
 				//displayMatrix(current.map);
 				displaySolutionOnMap(current);
 				d3.select("#message")
-				.text("Solution found!  Press reset to contine. (" + count +" considered.)");				
+				.text("Solution found!  Press reset to contine. (Tried " + count +" times.)");				
 				return;
 			}
 			
@@ -67,6 +100,59 @@ function solve(){
 	.text("No solution.");
 	return;
 }
+
+// 
+function updateTrivialMoves(map, uniqueColors, colorPos, excludeColor){
+	// populate visited matrix
+	var visited = [];
+	for (var r=0; r<map.length; r++){
+		visited[r] = [];
+		for (var c=0; c<map[r].length;c++){
+			if (map[r][c] != -1)
+				visited[r][c] = true;
+			else
+				visited[r][c] = false;
+		}
+	}
+	for (var c = 0; c < uniqueColors.length; c++){
+		var color = uniqueColors[c];
+		if (color==excludeColor)
+			continue;
+		for (var p =0; p < colorPos[color].length; p++){
+			var pos = colorPos[color][p];
+			while (true){
+				var nn = neighbors(map, pos, [-1, color]);
+				if (nn.length == 1 && ! visited[nn[0][0]][nn[0][1]]){
+					var rr = nn[0][0];
+					var cc = nn[0][1];
+					map[rr][cc] = color;
+					pos = nn[0];
+					visited[rr][cc] = true;
+				} else {
+					break;
+				}
+			}
+		}
+	}
+}
+
+
+// check if the path is a blocking path for other colors
+function blockingPath(path, map, uniqueColors, color, colorPos){
+	var colorInd = uniqueColors.indexOf(color);
+	while (colorInd != uniqueColors.length-1){
+		var c = uniqueColors[colorInd+1];
+		var startPos = colorPos[c][0];
+		var endPos = colorPos[c][1];
+		if (! hasPath(startPos, c, map))
+			return true;
+		colorInd ++;
+	}
+	return false;
+}
+
+
+
 
 // populate a map with previous paths
 function populatePathsOnMap(mapData, pnode){
@@ -159,11 +245,9 @@ function deepCopyMap(map){
 }
 
 
-// return a list of all possible paths (as the end node that can be traced back.)
-function allPossiblePaths(color, startPos, map){	
-	var validPaths = [];
+function hasPath(startPos, color, map){
 	var pos, current, i;
-	var queue = [new node(startPos)];  // Queue for nodes to be processed
+	var queue = [new node(startPos)];
 	while (queue.length > 0){
 		current = queue.pop();
 		// examine all current neighbors
@@ -177,8 +261,44 @@ function allPossiblePaths(color, startPos, map){
 				current.children.push(next);
 				r = nn[i][0];
 				c = nn[i][1];
-				if (mapData[r][c] == color)
+				if (mapData[r][c] == color){
+					return true;
+				}
+			}
+		}
+	}
+	return false;	
+	
+	
+}
+
+// return a list of all possible paths (as the end node that can be traced back.)
+function allPossiblePaths(color, startPos, map, maxPaths){
+	if (typeof maxPaths == undefined)
+		maxPaths = Number.POSITIVE_INFINITY;
+	var numPaths = 0;
+	var validPaths = [];
+	var pos, current, i;
+	var queue = [new node(startPos)];  // Queue for nodes to be processed
+	while (queue.length > 0){
+		current = queue.pop();
+		// examine all current neighbors
+		var nn = neighbors(map, current.value, [color, -1]);
+		for (i = 0; i < nn.length; i++){
+			if (!visited(current, nn[i]) && !blockingPath(current, map, uniqueColors, color, colorPos)) {
+				// not visited before.  A valid next step.
+				var next = new node(nn[i]);
+				next.from = current;
+				queue.push(next);
+				current.children.push(next);
+				r = nn[i][0];
+				c = nn[i][1];
+				if (mapData[r][c] == color){
 					validPaths.push(next);
+					numPaths ++;
+					if (numPaths >= maxPaths)
+						return validPaths;
+				}
 			}
 		}
 	}
@@ -256,6 +376,21 @@ function displayMatrix(matrix){
 	.data(function(d) { return d; })
 	.enter().append("td").text(function(d) { return d; });
 }
+
+//debugging function to display a matrix as table
+function displayMatrixConsole(matrix){
+	for (var i=0; i < matrix.length; i++){
+		var s = "";
+		for (var j=0; j < matrix[i].length; j++){
+			if (matrix[i][j]<0)
+				s += matrix[i][j]+", ";
+			else
+				s += " "+matrix[i][j]+", "; 
+		}
+		console.log(s);
+	}
+}
+
 
 // return unqiue elements of a 2D matrix, exclude the element specified in exclude
 function unique(matrix, exclude) {
